@@ -232,6 +232,14 @@ if st.button("📊 Predict"):
         labels = sorted(class_labels)
         acc = accuracy_score(y_test, y_pred_test)
         report = classification_report(y_test, y_pred_test, labels=labels, target_names=[str(c) for c in class_labels], output_dict=True)
+        
+        if any(report[str(c)]["precision"] == 0 and report[str(c)]["recall"] == 0 for c in class_labels):
+            st.info(
+                "ℹ️ For some categories, the model did not predict any cases in the test set. "
+                "As a result, precision and recall are shown as 0. "
+                "This usually reflects class imbalance or limited sample size."
+            )
+    
         st.write(f"\n📊 **Overall accuracy** : {acc:.2f}")
         st.markdown("### 📐 Metrics by class")
         for cls in class_labels:
