@@ -3,81 +3,17 @@ import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 
-from sklearn.pipeline import Pipeline
-from sklearn.metrics import (classification_report, recall_score, accuracy_score, precision_score, f1_score, confusion_matrix, ConfusionMatrixDisplay)
-from sklearn.svm import SVC
+from sklearn.metrics import (classification_report, accuracy_score, confusion_matrix, ConfusionMatrixDisplay)
 from sklearn.model_selection import train_test_split
-from sklearn.compose import ColumnTransformer
-from sklearn.model_selection import GridSearchCV
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
 
-# Human-readable labels for display
-COLUMN_LABELS = {
-    # ===== INPUTS =====
-    "Age_surgery": "Age",
-    "Sex": "Sex",
-    "FHX": "Risk factors",
-    "FHX_1DEGREE": "Family factors (1st degree)",
-    "TOBACCO": "Tobacco use",
-    "BMI": "Body Mass Index (BMI)",
-    "PHX_PULM": "History of lung disease",
-    "PHX_CVD": "History of cardiovascular disease",
-    "ATCD_COLONO": "Previous colonoscopy",
-    "ATCD_COLONO_AGE": "Age at last colonoscopy",
-    "PHX_DM": "History of diabetes mellitus",
-    "CONTEXT_NO_SP": "Asymptomatic",
-    "CONTEXT_BLOODY_STOOLS_ANEMIA": "Bloody stools / Anemia",
-    "CONTEXT_OCCLUSION": "Occlusion",
-    "CONTEXT_PERFORATION": "Perforation",
-    "CONTEXT_PAIN_DISCOMFORT": "Abdominal pain / discomfort",
-    "CONTEXT_AEG_FEVER": "Fever / fatigue",
-    "CONTEXT_TRANSIT_DISORDER": "Transit disorder",
-    "CI_PREOP": "Preoperative contraindication",
-    "PERFORATIO_PRE_OP": "Preoperative perforation",
-    "ABCESS_PRE_OP": "Preoperative abscess",
-    "PERITONITIS_PRE_OP": "Preoperative peritonitis",
-    "METASTATIC_CANCER_PRE_OP": "Metastatic cancer (preop)",
-    "ASA": "ASA score",
-    "HB_PREOP": "Preoperative hemoglobin",
-    "OPERATION_AVANT/APRES_MIDI": "Surgery time (AM / PM)",
-    "pT": "Clinical T stage",
-    "N0_N+": "Clinical N stage",
-
-    # ===== OUTPUTS =====
-    "CONVERSION": "Conversion",
-    "PEROP_BLEEDING": "Peroperative bleeding",
-    "INSTABILITY": "Hemodynamic instability (perop)",
-    "ICU_ADMISSION": "ICU admission (postop)",
-    "REINTERVENTION": "Reintervention",
-    "COMPLICATION": "Complication (any)",
-    "COMPLICATION_MAJOR": "Major complication",
-    "COMPLICATION_INFX": "Postoperative infection",
-    "COMPLICATION_WOUND_INFX": "Postoperative wound infection",
-    "COMPLICATION_LEAKAGE": "Postoperative anastomosis leakage",
-    "COMPLICATION_ABCESS": "Postoperative abscess",
-    "COMPLICATION_ILEUS": "Postoperative ileus",
-    "COMPLICATION_BLEED": "Postoperative bleeding",
-    "COMPLICATION_GRADE_DINDO": "Postoperative cancer upstaging"
-}
-
-SCORING_MAP = {
-    "Recall (macro)": "recall_macro",
-    "Accuracy": "accuracy",
-    "F1-score (macro)": "f1_macro",
-    "Precision (macro)": "precision_macro"
-}
+import config as cf
+import data
+import preprocessing
+import models
 
 st.title("Predictive Analysis of Colectomy-Related Complications")
 
-@st.cache_data
-def load_data():
-    df = pd.read_excel("AI_CHIR_DIG_FINAL.xlsx", sheet_name="Second cleanup")
-    return df
-
-df_raw = load_data()
+df_raw = data.load_data()
 
 # Définir les plages
 input_range = df_raw.columns [:28]
@@ -88,13 +24,13 @@ st.markdown("### 🎯 Select Criteria")
 selected_inputs = st.multiselect(
     "🧮 Input Criteria",
     options=input_range,
-    format_func=lambda x: COLUMN_LABELS.get(x, x)
+    format_func=lambda x: cf.COLUMN_LABELS.get(x, x)
 )
 
 selected_target = st.selectbox(
     "🏷️ Expected Prediction",
     options=[""] + list(output_range),
-    format_func=lambda x: COLUMN_LABELS.get(x, x) if x != "" else ""
+    format_func=lambda x: cf.COLUMN_LABELS.get(x, x) if x != "" else ""
 )
 
 if selected_target == "" or len(selected_inputs) == 0:
@@ -113,7 +49,7 @@ metric_choice = st.selectbox(
     ]
 )
 
-selected_scoring = SCORING_MAP[metric_choice]
+selected_scoring = cf.SCORING_MAP[metric_choice]
 
 df_model = df_raw.dropna(subset=selected_inputs + [selected_target]).reset_index(drop=True)
 
@@ -124,111 +60,30 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.1, random_state=42
 )
 
-model_configs = {
-    "Random Forest": {
-        "model": RandomForestClassifier(),
-        "params": {
-            "clf__n_estimators": [50, 100],
-            "clf__max_depth": [None, 10, 20],
-        },
-        "requires_encoding": False
-    },
-    "Logistic Regression": {
-        "model": LogisticRegression(max_iter=1000, class_weight="balanced"),
-        "params": {
-            "clf__C": [0.01, 0.1, 1.0, 10.0]
-        },
-        "requires_encoding": True
-    },
-    "SVM": {
-        "model": SVC(probability=True, class_weight="balanced"),
-        "params": {
-            "clf__C": [0.1, 1, 10],
-            "clf__kernel": ["rbf", "linear"]
-        },
-        "requires_encoding": True
-    },
-    "Gradient Boosting": {
-        "model": GradientBoostingClassifier(),
-        "params": {
-            "clf__n_estimators": [50, 100],
-            "clf__learning_rate": [0.05, 0.1]
-        },
-        "requires_encoding": False
-    }
-}
-
 results = []
 pipelines = {}
 
-# Pre-compute column groups
-cat_cols = X_train.select_dtypes(include="object").columns.tolist()
-num_cols = X_train.select_dtypes(include=[np.number]).columns.tolist()
+cat_cols, cont_cols, binary_cols = preprocessing.split_columns(X_train)
 
-# Identify binary vs continuous numericals
-binary_cols = [col for col in num_cols if X_train[col].nunique() == 2]
-cont_cols   = [col for col in num_cols if X_train[col].nunique() > 2]
-
-for name, config in model_configs.items():
+for name, config in models.MODEL_CONFIGS.items():
     print(f"Training {name}...")
 
-    # Categorical transformer
-    if config["requires_encoding"]:
-        cat_transformer = Pipeline([
-            ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("encoder", OneHotEncoder(handle_unknown="ignore"))
-        ])
-    else:
-        cat_transformer = Pipeline([
-            ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("encoder", OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1))
-        ])
-
-    # Continuous numerical transformer (impute then scale)
-    cont_transformer = Pipeline([
-        ("imputer", SimpleImputer(strategy="mean")),
-        ("scaler", StandardScaler())
-    ])
-
-    # Assemble ColumnTransformer
-    preprocessor = ColumnTransformer([
-        ("cat",    cat_transformer,  cat_cols),
-        ("cont",   cont_transformer, cont_cols),
-        ("binary","passthrough",     binary_cols),
-    ], remainder="drop")  # we've explicitly handled all columns
-
-    # Full pipeline
-    pipeline = Pipeline([
-        ("preprocessing", preprocessor),
-        ("clf",          config["model"])
-    ])
-
-    # Grid search
-    grid = GridSearchCV(
-        pipeline,
-        config["params"],
-        cv=10,
-        scoring=selected_scoring,
-        n_jobs=-1
+    score, best_estimator = models.train_single_model(
+        name=name,
+        config=config,
+        X_train=X_train,
+        y_train=y_train,
+        X_test=X_test,
+        y_test=y_test,
+        selected_scoring=selected_scoring,
+        cat_cols=cat_cols,
+        cont_cols=cont_cols,
+        binary_cols=binary_cols
     )
-    grid.fit(X_train, y_train)
-    y_pred = grid.predict(X_test)
 
-    if selected_scoring == "recall_macro":
-        score = recall_score(y_test, y_pred, average="macro", zero_division=0)
-    elif selected_scoring == "accuracy":
-        score = accuracy_score(y_test, y_pred)
-    elif selected_scoring == "precision_macro":
-        score = precision_score(y_test, y_pred, average="macro", zero_division=0)
-    elif selected_scoring == "f1_macro":
-        score = f1_score(y_test, y_pred, average="macro", zero_division=0)
+    results.append((name, score, best_estimator))
 
-    recall_macro = recall_score(y_test, y_pred, average="macro", zero_division=1)
-    recall_per_class = recall_score(y_test, y_pred, labels=[0, 1],average=None, zero_division=1)
-
-    results.append((name, score, grid.best_estimator_))
-
-    pipelines[name] = grid.best_estimator_
+    pipelines[name] = best_estimator
 
 # Pick best
 results.sort(key=lambda x: x[1], reverse=True)
@@ -252,7 +107,7 @@ st.markdown("### 🧾 Select variables for complication prediction")
 user_input = {}
 
 for col in selected_inputs:
-    label = COLUMN_LABELS.get(col, col)
+    label = cf.COLUMN_LABELS.get(col, col)
 
     if pd.api.types.is_numeric_dtype(df_model[col]):
         user_input[col] = st.number_input(
@@ -279,7 +134,7 @@ if st.button("📊 Predict"):
         classes = best_pipeline.named_steps['clf'].classes_
         proba_pairs = sorted(zip(classes, proba_all), key=lambda x: x[1], reverse=True)
         
-        st.markdown(f"### 📊 Predicted probabilities for **{COLUMN_LABELS.get(selected_target, selected_target)}**")
+        st.markdown(f"### 📊 Predicted probabilities for **{cf.COLUMN_LABELS.get(selected_target, selected_target)}**")
         st.write( "Interpretation: for this patient, here is the estimated probability for " 
                  "each possible value of the target column." )
         
@@ -301,7 +156,7 @@ if st.button("📊 Predict"):
     classes_test = best_pipeline.named_steps['clf'].classes_
     cm = confusion_matrix(y_test, y_pred_test, labels=classes_test)
 
-    st.markdown(f"### 📉 Confusion matrix on **{COLUMN_LABELS.get(selected_target, selected_target)}**")
+    st.markdown(f"### 📉 Confusion matrix on **{cf.COLUMN_LABELS.get(selected_target, selected_target)}**")
     fig, ax = plt.subplots()
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["No Complication", "Complication"])
     disp.plot(ax=ax, cmap="Blues")
