@@ -11,6 +11,11 @@ import data
 import preprocessing
 import models
 
+st.warning(
+    "⚠️ This tool is for research and educational purposes only. "
+    "It must not be used as a sole basis for clinical decision-making."
+)
+
 st.title("Predictive Analysis of Colectomy-Related Complications")
 
 df_raw = data.load_data()
