@@ -4,7 +4,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import (classification_report, recall_score, accuracy_score, confusion_matrix, ConfusionMatrixDisplay)
+from sklearn.metrics import (classification_report, recall_score, accuracy_score, precision_score, f1_score, confusion_matrix, ConfusionMatrixDisplay)
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
@@ -63,6 +63,13 @@ COLUMN_LABELS = {
     "COMPLICATION_GRADE_DINDO": "Postoperative cancer upstaging"
 }
 
+SCORING_MAP = {
+    "Recall (macro)": "recall_macro",
+    "Accuracy": "accuracy",
+    "F1-score (macro)": "f1_macro",
+    "Precision (macro)": "precision_macro"
+}
+
 st.title("Predictive Analysis of Colectomy-Related Complications")
 
 @st.cache_data
@@ -73,8 +80,8 @@ def load_data():
 df_raw = load_data()
 
 # Définir les plages
-input_range = df_raw.columns [:28]  # colonnes 3 à 41 (index 2 à 40)
-output_range = df_raw.columns[28:43] # colonnes 42 à 74 (index 41 à 73)
+input_range = df_raw.columns [:28]
+output_range = df_raw.columns[28:43]
 
 st.markdown("### 🎯 Select Criteria")
 
@@ -93,6 +100,20 @@ selected_target = st.selectbox(
 if selected_target == "" or len(selected_inputs) == 0:
     st.warning("Choose at least one criteria and one prediction")
     st.stop()
+
+st.markdown("### ⚙️ Model optimization criterion")
+
+metric_choice = st.selectbox(
+    "Select the metric used to choose the best model",
+    options=[
+        "Recall (macro)",
+        "Accuracy",
+        "F1-score (macro)",
+        "Precision (macro)"
+    ]
+)
+
+selected_scoring = SCORING_MAP[metric_choice]
 
 df_model = df_raw.dropna(subset=selected_inputs + [selected_target]).reset_index(drop=True)
 
@@ -187,29 +208,46 @@ for name, config in model_configs.items():
         pipeline,
         config["params"],
         cv=10,
-        scoring="recall_macro",
+        scoring=selected_scoring,
         n_jobs=-1
     )
     grid.fit(X_train, y_train)
     y_pred = grid.predict(X_test)
 
+    if selected_scoring == "recall_macro":
+        score = recall_score(y_test, y_pred, average="macro", zero_division=0)
+    elif selected_scoring == "accuracy":
+        score = accuracy_score(y_test, y_pred)
+    elif selected_scoring == "precision_macro":
+        score = precision_score(y_test, y_pred, average="macro", zero_division=0)
+    elif selected_scoring == "f1_macro":
+        score = f1_score(y_test, y_pred, average="macro", zero_division=0)
+
     recall_macro = recall_score(y_test, y_pred, average="macro", zero_division=1)
     recall_per_class = recall_score(y_test, y_pred, labels=[0, 1],average=None, zero_division=1)
 
-    results.append((name, recall_macro, recall_per_class, grid.best_estimator_))
+    results.append((name, score, grid.best_estimator_))
 
     pipelines[name] = grid.best_estimator_
 
 # Pick best
 results.sort(key=lambda x: x[1], reverse=True)
-best_model_name, best_recall_macro, best_recall_per_class, best_pipeline = results[0]
+best_model_name, best_score, best_pipeline = results[0]
 
 print(f"\n✅ Best model: {best_model_name}")
-print(f"Macro Recall: {best_recall_macro:.4f}")
-for idx, r in enumerate(best_recall_per_class):
-    print(f"Recall for class {idx}: {r:.4f}")
 
-st.markdown(f"### ✅ Best Model : **{best_model_name}** (Recall = {best_recall_per_class[1]:.2f})")
+st.markdown(
+    f"""
+    ### ✅ Selected Model
+
+    **Model**: {best_model_name}  
+    **Optimization metric**: {metric_choice}  
+    **Score**: {best_score:.2f}
+
+    ℹ️ The model was selected because it achieved the best performance according
+    to the chosen metric.
+    """
+)
 
 st.markdown("### 🧾 Select variables for complication prediction")
 
