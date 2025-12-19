@@ -14,6 +14,55 @@ from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 
+# Human-readable labels for display
+COLUMN_LABELS = {
+    # ===== INPUTS =====
+    "Age_surgery": "Age",
+    "Sex": "Sex",
+    "FHX": "Risk factors",
+    "FHX_1DEGREE": "Family factors (1st degree)",
+    "TOBACCO": "Tobacco use",
+    "BMI": "Body Mass Index (BMI)",
+    "PHX_PULM": "History of lung disease",
+    "PHX_CVD": "History of cardiovascular disease",
+    "ATCD_COLONO": "Previous colonoscopy",
+    "ATCD_COLONO_AGE": "Age at last colonoscopy",
+    "PHX_DM": "History of diabetes mellitus",
+    "CONTEXT_NO_SP": "Asymptomatic",
+    "CONTEXT_BLOODY_STOOLS_ANEMIA": "Bloody stools / Anemia",
+    "CONTEXT_OCCLUSION": "Occlusion",
+    "CONTEXT_PERFORATION": "Perforation",
+    "CONTEXT_PAIN_DISCOMFORT": "Abdominal pain / discomfort",
+    "CONTEXT_AEG_FEVER": "Fever / fatigue",
+    "CONTEXT_TRANSIT_DISORDER": "Transit disorder",
+    "CI_PREOP": "Preoperative contraindication",
+    "PERFORATIO_PRE_OP": "Preoperative perforation",
+    "ABCESS_PRE_OP": "Preoperative abscess",
+    "PERITONITIS_PRE_OP": "Preoperative peritonitis",
+    "METASTATIC_CANCER_PRE_OP": "Metastatic cancer (preop)",
+    "ASA": "ASA score",
+    "HB_PREOP": "Preoperative hemoglobin",
+    "OPERATION_AVANT/APRES_MIDI": "Surgery time (AM / PM)",
+    "pT": "Clinical T stage",
+    "N0_N+": "Clinical N stage",
+
+    # ===== OUTPUTS =====
+    "CONVERSION": "Conversion",
+    "PEROP_BLEEDING": "Peroperative bleeding",
+    "INSTABILITY": "Hemodynamic instability (perop)",
+    "ICU_ADMISSION": "ICU admission (postop)",
+    "REINTERVENTION": "Reintervention",
+    "COMPLICATION": "Complication (any)",
+    "COMPLICATION_MAJOR": "Major complication",
+    "COMPLICATION_INFX": "Postoperative infection",
+    "COMPLICATION_WOUND_INFX": "Postoperative wound infection",
+    "COMPLICATION_LEAKAGE": "Postoperative anastomosis leakage",
+    "COMPLICATION_ABCESS": "Postoperative abscess",
+    "COMPLICATION_ILEUS": "Postoperative ileus",
+    "COMPLICATION_BLEED": "Postoperative bleeding",
+    "COMPLICATION_GRADE_DINDO": "Postoperative cancer upstaging"
+}
+
 st.title("Predictive Analysis of Colectomy-Related Complications")
 
 @st.cache_data
@@ -29,8 +78,17 @@ output_range = df_raw.columns[28:43] # colonnes 42 à 74 (index 41 à 73)
 
 st.markdown("### 🎯 Select Criteria")
 
-selected_inputs = st.multiselect("🧮 Input Criteria", input_range, default=[])
-selected_target = st.selectbox("🏷️ Expected Prediction", options=[""] + list(output_range))
+selected_inputs = st.multiselect(
+    "🧮 Input Criteria",
+    options=input_range,
+    format_func=lambda x: COLUMN_LABELS.get(x, x)
+)
+
+selected_target = st.selectbox(
+    "🏷️ Expected Prediction",
+    options=[""] + list(output_range),
+    format_func=lambda x: COLUMN_LABELS.get(x, x) if x != "" else ""
+)
 
 if selected_target == "" or len(selected_inputs) == 0:
     st.warning("Choose at least one criteria and one prediction")
@@ -158,23 +216,17 @@ st.markdown("### 🧾 Select variables for complication prediction")
 user_input = {}
 
 for col in selected_inputs:
+    label = COLUMN_LABELS.get(col, col)
+
     if pd.api.types.is_numeric_dtype(df_model[col]):
-        col_min = float(df_model[col].min())
-        col_max = float(df_model[col].max())
-        col_median = float(df_model[col].median())
         user_input[col] = st.number_input(
-            label=col,
-            min_value=col_min,
-            max_value=col_max,
-            value=col_median
+            label,
+            value=float(df_model[col].median())
         )
     else:
-        unique_values = df_model[col].dropna().unique().tolist()
-        default_value = unique_values[0] if unique_values else ""
         user_input[col] = st.selectbox(
-            label=col,
-            options=unique_values,
-            index=0 if default_value in unique_values else 0
+            label,
+            options=df_model[col].dropna().unique().tolist()
         )
 
 if st.button("📊 Predict"):
@@ -191,7 +243,7 @@ if st.button("📊 Predict"):
         classes = best_pipeline.named_steps['clf'].classes_
         proba_pairs = sorted(zip(classes, proba_all), key=lambda x: x[1], reverse=True)
         
-        st.markdown(f"### 📊 Predicted probabilities for {selected_target}")
+        st.markdown(f"### 📊 Predicted probabilities for **{COLUMN_LABELS.get(selected_target, selected_target)}**")
         st.write( "Interpretation: for this patient, here is the estimated probability for " 
                  "each possible value of the target column." )
         
@@ -213,7 +265,7 @@ if st.button("📊 Predict"):
     classes_test = best_pipeline.named_steps['clf'].classes_
     cm = confusion_matrix(y_test, y_pred_test, labels=classes_test)
 
-    st.markdown("### 📉 Confusion matrix on ({selected_target})")
+    st.markdown(f"### 📉 Confusion matrix on **{COLUMN_LABELS.get(selected_target, selected_target)}**")
     fig, ax = plt.subplots()
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["No Complication", "Complication"])
     disp.plot(ax=ax, cmap="Blues")
