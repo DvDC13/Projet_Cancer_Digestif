@@ -14,7 +14,7 @@ from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 
-st.title("🔬 Prédiction de Complications Chirurgicales")
+st.title("Predictive Analysis of Colectomy-Related Complications")
 
 @st.cache_data
 def load_data():
@@ -27,13 +27,13 @@ df_raw = load_data()
 input_range = df_raw.columns   # colonnes 3 à 41 (index 2 à 40)
 output_range = df_raw.columns[39:73] # colonnes 42 à 74 (index 41 à 73)
 
-st.markdown("### 🎯 Choisissez les colonnes pour l'entraînement")
+st.markdown("### 🎯 Select Criteria")
 
-selected_inputs = st.multiselect("🧮 Colonnes d'entrée (features)", input_range, default=[])
-selected_target = st.selectbox("🏷️ Colonne cible (target)", options=[""] + list(output_range))
+selected_inputs = st.multiselect("🧮 Input Criteria", input_range, default=[])
+selected_target = st.selectbox("🏷️ Expected Prediction", options=[""] + list(output_range))
 
 if selected_target == "" or len(selected_inputs) == 0:
-    st.warning("Veuillez sélectionner au moins une colonne d'entrée et une colonne cible.")
+    st.warning("Choose at least one criteria and one prediction")
     st.stop()
 
 df_model = df_raw.dropna(subset=selected_inputs + [selected_target]).reset_index(drop=True)
@@ -151,9 +151,9 @@ print(f"Macro Recall: {best_recall_macro:.4f}")
 for idx, r in enumerate(best_recall_per_class):
     print(f"Recall for class {idx}: {r:.4f}")
 
-st.markdown(f"### ✅ Meilleur modèle : **{best_model_name}** (Recall = {best_recall_per_class[1]:.2f})")
+st.markdown(f"### ✅ Best Model : **{best_model_name}** (Recall = {best_recall_per_class[1]:.2f})")
 
-st.markdown("### 🧾 Entrez les valeurs pour prédire une complication")
+st.markdown("### 🧾 Select variables for complication prediction")
 
 user_input = {}
 
@@ -177,7 +177,7 @@ for col in selected_inputs:
             index=0 if default_value in unique_values else 0
         )
 
-if st.button("📊 Prédire"):
+if st.button("📊 Predict"):
     input_df = pd.DataFrame([user_input])
     pred = best_pipeline.predict(input_df)[0]
     proba = None
@@ -185,13 +185,13 @@ if st.button("📊 Prédire"):
         proba = best_pipeline.predict_proba(input_df)[0][1]
 
     if proba is not None:
-        st.write(f"Probabilité de complication : **{proba:.2f}**")
+        st.write(f"Complication prediction : **{proba:.2f}**")
 
     # Matrice de confusion
     y_pred_test = best_pipeline.predict(X_test)
     cm = confusion_matrix(y_test, y_pred_test, labels=[0, 1])
-    st.markdown("### 📉 Matrice de confusion sur le test")
+    st.markdown("### 📉 Confusion matrix")
     fig, ax = plt.subplots()
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["Pas de complication", "Complication"])
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=["No Complication", "Complication"])
     disp.plot(ax=ax, cmap="Blues")
     st.pyplot(fig)
