@@ -234,8 +234,6 @@ for name, config in model_configs.items():
 results.sort(key=lambda x: x[1], reverse=True)
 best_model_name, best_score, best_pipeline = results[0]
 
-print(f"\n✅ Best model: {best_model_name}")
-
 st.markdown(
     f"""
     ### ✅ Selected Model
