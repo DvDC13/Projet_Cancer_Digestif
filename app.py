@@ -10,6 +10,7 @@ import config as cf
 import data
 import preprocessing
 import models
+import evaluate
 
 st.warning(
     "⚠️ This tool is for research and educational purposes only. "
@@ -105,6 +106,41 @@ st.markdown(
     ℹ️ The model was selected because it achieved the best performance according
     to the chosen metric.
     """
+)
+
+# =============================
+# STEP 1 — Univariate evaluation
+# =============================
+st.markdown("## 🔬 Univariate model performance")
+st.write(
+    "Each variable is evaluated **alone** to measure its intrinsic predictive power. "
+    "The final score is the **mean** over all variables."
+)
+
+univariate_scores = []
+
+for feature in selected_inputs:
+    X_single = df_model[[feature]]
+    y_single = df_model[selected_target].astype(int)
+
+    score = evaluate.evaluate_model_on_inputs(
+        model=best_pipeline.named_steps["clf"],
+        requires_encoding=models.MODEL_CONFIGS[best_model_name]["requires_encoding"],
+        X=X_single,
+        y=y_single,
+        scoring=metric_choice
+    )
+
+    univariate_scores.append(score)
+    st.write(f"• **{feature}** → {metric_choice}: `{score:.3f}`")
+
+# =============================
+# Mean univariate score
+# =============================
+mean_score = np.mean(univariate_scores)
+
+st.success(
+    f"📊 Mean {metric_choice} using **1 variable at a time**: `{mean_score:.3f}`"
 )
 
 st.markdown("### 🧾 Select variables for complication prediction")
