@@ -42,9 +42,9 @@ COLUMN_LABELS = {
     "COMPLICATION_WOUND_INFX": "Postoperative wound infection",
     "COMPLICATION_LEAKAGE": "Postoperative anastomosis leakage",
     "COMPLICATION_ABCESS": "Postoperative abscess",
-    "COMPLICATION_ILEUS": "Postoperative ileus",
+    "COMPLICATION_ILEUS_NO1_YES2_NO_GAS": "Postoperative ileus",
     "COMPLICATION_BLEED": "Postoperative bleeding",
-    "COMPLICATION_GRADE_DINDO": "Postoperative cancer upstaging"
+    "COMPLICATION_GRADE.DINDO": "Postoperative cancer upstaging"
 }
 
 SCORING_MAP = {

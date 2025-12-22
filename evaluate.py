@@ -7,6 +7,7 @@ from sklearn.metrics import (
     f1_score
 )
 from sklearn.pipeline import Pipeline
+from itertools import combinations
 
 import preprocessing
 
@@ -70,3 +71,43 @@ def evaluate_model_on_inputs(
 
     else:
         raise ValueError(f"Unknown scoring metric: {scoring}")
+
+def evaluate_by_input_count(
+    model,
+    requires_encoding,
+    X,
+    y,
+    scoring,
+    max_inputs=4
+):
+    """
+    Evaluate mean performance using 1..max_inputs variables
+    """
+
+    results = {}
+
+    input_cols = list(X.columns)
+
+    for k in range(1, max_inputs + 1):
+        scores = []
+
+        for cols in combinations(input_cols, k):
+            X_subset = X[list(cols)]
+
+            score = evaluate_model_on_inputs(
+                model=model,
+                requires_encoding=requires_encoding,
+                X=X_subset,
+                y=y,
+                scoring=scoring
+            )
+
+            scores.append(score)
+
+        results[k] = {
+            "mean": float(np.mean(scores)),
+            "std": float(np.std(scores)),
+            "n_combinations": len(scores)
+        }
+
+    return results

@@ -143,6 +143,27 @@ st.success(
     f"📊 Mean {metric_choice} using **1 variable at a time**: `{mean_score:.3f}`"
 )
 
+st.markdown("### 🧪 Input count performance analysis")
+
+with st.spinner("Evaluating combinations (this may take a while)..."):
+    results = evaluate.evaluate_by_input_count(
+        model=best_pipeline.named_steps["clf"],
+        requires_encoding=models.MODEL_CONFIGS[best_model_name]["requires_encoding"],
+        X=df_model[selected_inputs],
+        y=y,
+        scoring=metric_choice,
+        max_inputs=1
+    )
+
+st.markdown("### 📊 Mean performance by number of inputs")
+
+for k, res in results.items():
+    st.write(
+        f"**{k} input(s)** → "
+        f"{metric_choice}: **{res['mean']:.3f} ± {res['std']:.3f}** "
+        f"(n={res['n_combinations']})"
+    )
+
 st.markdown("### 🧾 Select variables for complication prediction")
 
 user_input = {}
