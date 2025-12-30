@@ -48,8 +48,8 @@ st.markdown("### ⚙️ Model optimization criterion")
 metric_choice = st.selectbox(
     "Select the metric used to choose the best model",
     options=[
-        "Recall (macro)",
         "Accuracy",
+        "Recall (macro)",
         "F1-score (macro)",
         "Precision (macro)"
     ]
@@ -108,61 +108,61 @@ st.markdown(
     """
 )
 
-# =============================
-# STEP 1 — Univariate evaluation
-# =============================
-st.markdown("## 🔬 Univariate model performance")
-st.write(
-    "Each variable is evaluated **alone** to measure its intrinsic predictive power. "
-    "The final score is the **mean** over all variables."
-)
+# # =============================
+# # STEP 1 — Univariate evaluation
+# # =============================
+# st.markdown("## 🔬 Univariate model performance")
+# st.write(
+#     "Each variable is evaluated **alone** to measure its intrinsic predictive power. "
+#     "The final score is the **mean** over all variables."
+# )
 
-univariate_scores = []
+# univariate_scores = []
 
-for feature in selected_inputs:
-    X_single = df_model[[feature]]
-    y_single = df_model[selected_target].astype(int)
+# for feature in selected_inputs:
+#     X_single = df_model[[feature]]
+#     y_single = df_model[selected_target].astype(int)
 
-    score = evaluate.evaluate_model_on_inputs(
-        model=best_pipeline.named_steps["clf"],
-        requires_encoding=models.MODEL_CONFIGS[best_model_name]["requires_encoding"],
-        X=X_single,
-        y=y_single,
-        scoring=metric_choice
-    )
+#     score = evaluate.evaluate_model_on_inputs(
+#         model=best_pipeline.named_steps["clf"],
+#         requires_encoding=models.MODEL_CONFIGS[best_model_name]["requires_encoding"],
+#         X=X_single,
+#         y=y_single,
+#         scoring=metric_choice
+#     )
 
-    univariate_scores.append(score)
-    st.write(f"• **{feature}** → {metric_choice}: `{score:.3f}`")
+#     univariate_scores.append(score)
+#     st.write(f"• **{feature}** → {metric_choice}: `{score:.3f}`")
 
-# =============================
-# Mean univariate score
-# =============================
-mean_score = np.mean(univariate_scores)
+# # =============================
+# # Mean univariate score
+# # =============================
+# mean_score = np.mean(univariate_scores)
 
-st.success(
-    f"📊 Mean {metric_choice} using **1 variable at a time**: `{mean_score:.3f}`"
-)
+# st.success(
+#     f"📊 Mean {metric_choice} using **1 variable at a time**: `{mean_score:.3f}`"
+# )
 
-st.markdown("### 🧪 Input count performance analysis")
+# st.markdown("### 🧪 Input count performance analysis")
 
-with st.spinner("Evaluating combinations (this may take a while)..."):
-    results = evaluate.evaluate_by_input_count(
-        model=best_pipeline.named_steps["clf"],
-        requires_encoding=models.MODEL_CONFIGS[best_model_name]["requires_encoding"],
-        X=df_model[selected_inputs],
-        y=y,
-        scoring=metric_choice,
-        max_inputs=1
-    )
+# with st.spinner("Evaluating combinations (this may take a while)..."):
+#     results = evaluate.evaluate_by_input_count(
+#         model=best_pipeline.named_steps["clf"],
+#         requires_encoding=models.MODEL_CONFIGS[best_model_name]["requires_encoding"],
+#         X=df_model[selected_inputs],
+#         y=y,
+#         scoring=metric_choice,
+#         max_inputs=6
+#     )
 
-st.markdown("### 📊 Mean performance by number of inputs")
+# st.markdown("### 📊 Mean performance by number of inputs")
 
-for k, res in results.items():
-    st.write(
-        f"**{k} input(s)** → "
-        f"{metric_choice}: **{res['mean']:.3f} ± {res['std']:.3f}** "
-        f"(n={res['n_combinations']})"
-    )
+# for k, res in results.items():
+#     st.write(
+#         f"**{k} input(s)** → "
+#         f"{metric_choice}: **{res['mean']:.3f} ± {res['std']:.3f}** "
+#         f"(n={res['n_combinations']})"
+#     )
 
 st.markdown("### 🧾 Select variables for complication prediction")
 
